@@ -780,6 +780,16 @@ void loop(void)
         refAltitude2 = round(tmpAlt*100)/100.0;
         getAltitude2 = true;
     }
+    
+    if(Altitude < 0)
+    {
+         Altitude = 0;
+    }
+    
+    if(Altitude2 < 0)
+    {
+         Altitude2 = 0;
+    }
 
     auto tmpVario  = 1000.0*(float)((samples*N1)-N2*N3)/(float)(samples*D1-D2*D2); // calculate vario
     
