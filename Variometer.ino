@@ -1,11 +1,14 @@
 #include <Wire.h>                   // I2C interface library
-#include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>        // Piezo Tone Library
 #include "U8glib.h"
 #include <EEPROM.h>
 
 #include <VoltageReference.h>
 #include <SimpleKalmanFilter.h>
+
+const char *hex = "0123456789ABCDEF";
+char t_check[3];
+char newl[2] = "\n";
 
 float measurementConstant = 0.2;
 float estimationConstant = 0.2;
@@ -18,9 +21,8 @@ unsigned long get_time_second = millis();
 bool beepOn = true;
 bool refAltitudeOn = false;
 
-
 SimpleKalmanFilter varioKalmanFilter(measurementConstant, estimationConstant, noiseConstant);
-SimpleKalmanFilter altitudeKalmanFilter(measurementConstant, estimationConstant, noiseConstant);
+//SimpleKalmanFilter altitudeKalmanFilter(measurementConstant, estimationConstant, noiseConstant);
 
 VoltageReference vRef;
 
@@ -42,10 +44,10 @@ float muxTmp = 0.25;
 
 float vario = 0.0;
 
-float Altitude = 0.0;
-float Altitude2 = 0.0;
+float altitude = 0.0;
+float altitude2 = 0.0;
 float refAltitude2 = 0.0;
-float Temperature = 0.0;
+float temperature = 0.0;
 unsigned long bounseInput4P = 0UL;
 unsigned long time;
 
@@ -195,13 +197,13 @@ void draw(void)
     u8g.setFont(u8g_font_8x13Br); //para o alfabeto completo com caracteres tirar o r do font_8x13Br
     if(screen == 0)
     {
-        u8g.drawBitmapP( 0, 0, 16, 64, rook_bitmap);
+        //u8g.drawBitmapP( 0, 0, 16, 64, rook_bitmap);
     }
     else if(screen == 1)
     {
         u8g.setColorIndex(0);
         u8g.setColorIndex(1);
-        u8g.drawStr( 13, 30, "**  LET'S  **"); //acentos http://www.ascii-code.com/
+        u8g.drawStr( 13, 30, "**  LET'S  **"); 
         u8g.drawStr( 38, 50, "  FLY  ");
     }
     
@@ -216,7 +218,7 @@ void draw(void)
         //temperatura
         
         u8g.setPrintPos(0, 16);
-        u8g.print(Temperature,1);
+        u8g.print(temperature,1);
         u8g.drawStr( 35, 16, "C"); 
         
         //box and m / s vario
@@ -295,47 +297,47 @@ void draw(void)
         
         if(refAltitudeOn)
         {
-            if(Altitude2 >= 1000)
+            if(altitude2 >= 1000)
             {
                 posAlt2 = 44;
             }
-            else if(Altitude2 >= 100 && Altitude2 < 1000)
+            else if(altitude2 >= 100 && altitude2 < 1000)
             {
                 posAlt2 = 60;
             }
-            else if(Altitude2 >= 10 && Altitude2 < 100)
+            else if(altitude2 >= 10 && altitude2 < 100)
             {
                 posAlt2 = 76;
             }
-            else if(Altitude2 >= 0 && Altitude2 < 10)
+            else if(altitude2 >= 0 && altitude2 < 10)
             {
                 posAlt2 = 92;
             }
 
             u8g.setPrintPos(posAlt2, 64);       
-            u8g.print(Altitude2, 0);  
+            u8g.print(altitude2, 0);  
         } 
         else
         {
-           if(Altitude >= 1000)
+           if(altitude >= 1000)
             {
                 posAlt1 = 44;
             }
-            else if(Altitude >= 100 && Altitude < 1000)
+            else if(altitude >= 100 && altitude < 1000)
             {
                 posAlt1 = 60;
             }
-            else if(Altitude >= 10 && Altitude < 100)
+            else if(altitude >= 10 && altitude < 100)
             {
                 posAlt1 = 76;
             }
-            else if(Altitude >= 0 && Altitude < 10)
+            else if(altitude >= 0 && altitude < 10)
             {
                 posAlt1 = 92;
-            }
+            }           
 
             u8g.setPrintPos(posAlt1, 64);       
-            u8g.print(Altitude, 0);  
+            u8g.print(altitude, 0);  
         } 
         
         //vario
@@ -471,9 +473,83 @@ void draw(void)
     }    
 }
 
+void setnmeaVarioLXWP0(float alt, float vario) { //in m/s
+  // $LXWP0,logger_stored, airspeed, airaltitude,
+  //   v1[0],v1[1],v1[2],v1[3],v1[4],v1[5], hdg, windspeed*CS<CR><LF>
+  //
+  // 0 loger_stored : [Y|N] (not used in LX1600)
+  // 1 IAS [km/h] ----> Condor uses TAS!
+  // 2 baroaltitude [m]
+  // 3-8 vario values [m/s] (last 6 measurements in last second)
+  // 9 heading of plane (not used in LX1600)
+  // 10 windcourse [deg] (not used in LX1600)
+  // 11 windspeed [km/h] (not used in LX1600)
+  //
+  // e.g.:
+  // $LXWP0,Y,222.3,1665.5,1.71,,,,,,239,174,10.1
+
+  char t_nmeaVarioLXWP0[60] = "$LXWP0,N,,";
+  char t_vario[5];
+  char t_alt[9];
+
+  char t_tail[3] = ",,,,,,,";
+  char t_comma[2] = ",";
+
+  dtostrf(alt, 5, 2, t_alt);
+  strcat(t_nmeaVarioLXWP0, t_alt);
+  strcat(t_nmeaVarioLXWP0, t_comma);
+  
+  dtostrf(vario, 2, 2, t_vario);
+  strcat(t_nmeaVarioLXWP0, t_vario);
+  strcat(t_nmeaVarioLXWP0, t_comma);
+  
+  strcat(t_nmeaVarioLXWP0, t_tail);
+  strcat(t_nmeaVarioLXWP0, "*");
+
+  getCRC(t_nmeaVarioLXWP0);
+
+  strcat(t_nmeaVarioLXWP0, t_check);
+
+  if (Serial.available())      
+  {
+    Serial.print(t_nmeaVarioLXWP0); 
+    Serial.print(newl);
+  }
+}
+
+void getCRC(char *buff) {
+  // NMEA CRC: XOR each byte with previous for all chars between '$' and '*'
+  char c;
+  byte i;
+  byte start_with = 0;
+  byte end_with = 0;
+  char CRC = 0;
+
+  for (i = 0; i < 128; i++) {
+    c = buff[i];
+    if (c == 0x24) {
+      start_with = i;
+    }
+    if (c == 0x2a) {
+      end_with = i;
+      break;
+    }
+  }
+  if (end_with > start_with) {
+    for (i = start_with + 1; i < end_with; i++) { // XOR every character between '$' and '*'
+      CRC = CRC ^ buff[i] ;  // compute CRC
+    }
+  }
+
+  //Single threaded, so this is allowed
+  t_check[0] = hex[(CRC >> 4) & 0xF];
+  t_check[1] = hex[(CRC) & 0xF];
+  t_check[2] = '\0';
+}
+
 void setup()
 {
-    //Serial.begin(9600);  
+    Serial.begin(115200);  
     
     Wire.begin();                //  Initialize i2c
     pinMode(4, INPUT);
@@ -519,11 +595,11 @@ void loop(void)
         if(vario > Mvarioup){Mvarioup=vario;} //writes the largest integer variable
         if(vario < Mvariodown){Mvariodown=vario;} //writes the largest descendant variable
         
-        if(Altitude > MaltitudeMax){
-            MaltitudeMax = Altitude;
+        if(altitude > MaltitudeMax){
+            MaltitudeMax = altitude;
         }
         
-        MaltitudeDec = Altitude;
+        MaltitudeDec = altitude;
         
         if(millis() - temp_alt < 0)
         {
@@ -536,9 +612,9 @@ void loop(void)
         if(temp_verif_alt > 20 && m_takeoff == 0)
         {
             temp_verif_alt = 0;
-            MaltitudeDec = Altitude;
+            MaltitudeDec = altitude;
             
-            if((Altitude - ult_altitude < -5.0 || Altitude - ult_altitude > 5.0) && menu == 2) 
+            if((altitude - ult_altitude < -5.0 || altitude - ult_altitude > 5.0) && menu == 2) 
             {
                 m_takeoff = 1;
             }
@@ -547,14 +623,14 @@ void loop(void)
         m_gain = MaltitudeMax - MaltitudeDec;
         
         //Flight ended.   
-        if((m_landing - Altitude < 2 || m_landing - Altitude > -2) && menu == 2 && endfly == 0 && m_takeoff == 1)
+        if((m_landing - altitude < 2 || m_landing - altitude > -2) && menu == 2 && endfly == 0 && m_takeoff == 1)
         {
             m_savetime = millis();
             endfly = 1;
         }
         
-        m_landing = Altitude;
-        if(m_landing - Altitude < 2 && m_landing - Altitude > -2 && menu == 2 && endfly == 1)
+        m_landing = altitude;
+        if(m_landing - altitude < 2 && m_landing - altitude > -2 && menu == 2 && endfly == 1)
         {
             if (millis() - m_savetime > 5000) 
             { 
@@ -604,7 +680,7 @@ void loop(void)
     }   
     
     int currentState = (digitalRead (4));
-    
+
     if (currentState != buttonState)
     {
         duration = millis();
@@ -744,7 +820,8 @@ void loop(void)
     //every second get temperature and battery level 
     if (millis() >= (get_time_second + 1000))      
     {
-        Temperature = (sensor_bmp.readTemperature());
+        setnmeaVarioLXWP0(altitude, vario);       
+        temperature = (sensor_bmp.readTemperature());
         get_time_second = millis();
     }
     
@@ -768,17 +845,13 @@ void loop(void)
         D2 += (tim[cc]-stime);
     };    
     
-    Altitude = altitudeKalmanFilter.updateEstimate(round(tmpAlt*100)/100.0);   //apply kalman filter    
-    
-    if(Altitude < 0)
-    {
-         Altitude = 0.0;
-    }
+    altitude = round(tmpAlt*100)/100.0;//altitudeKalmanFilter.updateEstimate(round(tmpAlt*100)/100.0);   //apply kalman filter    
+    if(altitude < 0) altitude = 0.0;
     
     if(getAltitude2)
     {
-         Altitude2 = Altitude - refAltitude2;
-         if(Altitude2 < 0) Altitude2 = 0.0;
+         altitude2 = altitude - refAltitude2;
+         if(altitude2 < 0) altitude2 = 0.0;
     }
     else
     {
@@ -790,11 +863,8 @@ void loop(void)
     
     vario = varioKalmanFilter.updateEstimate(round(tmpVario*100)/100.0);   //apply kalman filter 
     
-    if(vario > 9.9)
-    {
-        vario = 9.9;
-    }
-    
+    if(vario > 9.9)vario = 9.9;
+       
     auto delayBeep = 300;
     
     if ((tempo - beep) > Beep_period && screen == 2)
