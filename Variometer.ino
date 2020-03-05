@@ -64,9 +64,6 @@ unsigned char buttonState;
 unsigned long duration;
 unsigned long resettime;
 unsigned char buttonStatus=0;
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 20; //debounce button
-
 
 //clock
 unsigned char m_clock = 0;
@@ -195,6 +192,7 @@ void draw(void)
 {    
     u8g.setColorIndex(1); // Instructs the display to draw with a pixel on.
     u8g.setFont(u8g_font_8x13Br); //para o alfabeto completo com caracteres tirar o r do font_8x13Br
+    
     if(screen == 0)
     {
         //u8g.drawBitmapP( 0, 0, 16, 64, rook_bitmap);
@@ -205,9 +203,8 @@ void draw(void)
         u8g.setColorIndex(1);
         u8g.drawStr( 13, 30, "**  LET'S  **"); 
         u8g.drawStr( 38, 50, "  FLY  ");
-    }
-    
-    if(screen == 2)
+    }    
+    else if(screen == 2)
     {
         u8g.setColorIndex(0);
         u8g.setColorIndex(1);
